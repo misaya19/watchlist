@@ -1,31 +1,34 @@
+# -*- coding: utf-8 -*-
 import os
 import sys
+
+import click
 from flask import Flask, render_template
 from flask_sqlalchemy import SQLAlchemy
-import click
 
+# SQLite URI compatible
 WIN = sys.platform.startswith('win')
 if WIN:
     prefix = 'sqlite:///'
 else:
     prefix = 'sqlite:////'
 
-app = Flask(__name__)
 
+app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = prefix + os.path.join(app.root_path, 'data.db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
 
 
-@app.cli.command() # 注册为命令
-@click.option('--drop', is_flag=True, help='Create after drop.') # 设置选项
+@app.cli.command()
+@click.option('--drop', is_flag=True, help='Create after drop.')
 def initdb(drop):
     """Initialize the database."""
-    if drop: # 判断是否输入了选项
+    if drop:
         db.drop_all()
     db.create_all()
-    click.echo('Initialized database.') # 输出提示信息
+    click.echo('Initialized database.')
 
 
 @app.cli.command()
@@ -68,8 +71,18 @@ class Movie(db.Model):
     year = db.Column(db.String(4))
 
 
+@app.context_processor
+def inject_user():
+    user = User.query.first()
+    return dict(user=user)
+
+
+@app.errorhandler(404)
+def page_not_found(e):
+    return render_template('404.html'), 404
+
+
 @app.route('/')
 def index():
-    user = User.query.first()
     movies = Movie.query.all()
-    return render_template('index.html', user=user, movies=movies)
+    return render_template('index.html', movies=movies)
